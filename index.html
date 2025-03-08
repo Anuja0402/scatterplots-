@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Marriage & Divorce Rates Bar Chart</title>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <style>
+    .bar {
+      fill: steelblue;
+    }
+    .bar.highlight {
+      fill: red;
+    }
+    .axis-label {
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <svg width="800" height="500"></svg>
+
+  <script>
+    // Here, we load the CSV file
+    d3.csv("marriage-rate-and-divorce-rate.csv")
+      .then(function(data) {
+        // we group the data by Year and build a new dataset
+        const dataByYear = Array.from(
+          d3.group(data, d => +d.Year),
+          ([year, values]) => {
+            // Now, we find the corresponding rows for Marriage Rate and Divorce Rate
+            const marriageRow = values.find(d => d["General Marriage_Rate_and Divorce_Rate"] === "Marriage Rate");
+            const divorceRow  = values.find(d => d["General Marriage_Rate_and Divorce_Rate"] === "Divorce Rate");
+            return {
+              year: +year,
+              marriage_rate: +marriageRow.Count,
+              divorce_rate: +divorceRow.Count,
+              diff: Math.abs(+marriageRow.Count - +divorceRow.Count)
+            };
+          }
+        );
+
+        // Now, sortsadfsa the data by year (if not already sorted)
+        dataByYear.sort((a, b) => a.year - b.year);
+
+        // Here, we set dimensions and margins
+        const margin = { top: 20, right: 20, bottom: 50, left: 60 },
+              width  = 800 - margin.left - margin.right,
+              height = 500 - margin.top - margin.bottom;
+
+        // Now, we appending SVG group element and apply margins
+        const svg = d3.select("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        // Here, we X scale: using a band scale with the years
+        const x = d3.scaleBand()
+          .domain(dataByYear.map(d => d.year))
+          .range([0, width])
+          .padding(0.1);
+
+        // Again, Y scale: based on the marriage_rate values
+        const y = d3.scaleLinear()
+          .domain([0, d3.max(dataByYear, d => d.marriage_rate)])
+          .nice()
+          .range([height, 0]);
+
+        // We add the X axis with conditional styling for the labels:
+        // If the difference is less than 2, set the label to red and bold.
+        const xAxis = d3.axisBottom(x);
+        svg.append("g")
+          .attr("transform", `translate(0, ${height})`)
+          .call(xAxis)
+          .selectAll("text")
+            .attr("class", "axis-label")
+            .style("fill", d => {
+              const datum = dataByYear.find(e => e.year === +d);
+              return datum.diff < 2 ? "red" : "black";
+            })
+            .style("font-weight", d => {
+              const datum = dataByYear.find(e => e.year === +d);
+              return datum.diff < 2 ? "bold" : "normal";
+            });
+
+        // Here, wde add the Y axis
+        svg.append("g")
+          .call(d3.axisLeft(y));
+
+        // Here, we draw bars representing the marriage rate.
+        // bars are highlighted in red if the difference is less than 2.
+        svg.selectAll(".bar")
+          .data(dataByYear)
+          .enter()
+          .append("rect")
+            .attr("class", d => d.diff < 2 ? "bar highlight" : "bar")
+            .attr("x", d => x(d.year))
+            .attr("y", d => y(d.marriage_rate))
+            .attr("width", x.bandwidth())
+            .attr("height", d => height - y(d.marriage_rate));
+      })
+      .catch(function(error) {
+        console.error("Error loading CSV file:", error);
+      });
+  </script>
+</body>
+</html>
